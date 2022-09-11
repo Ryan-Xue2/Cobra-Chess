@@ -4,16 +4,16 @@ import time
 import numpy as np
 import chess.engine
 
+from cobra import helpers
 from cobra.controller import Controller
 from cobra.transposition import TranspositionTable, TranspositionTableEntry, EXACT, UPPER, LOWER
-from cobra import helpers
 
 
 class CobraEngine:
     __slots__ = ('model', 'controller', 'transposition', 'history', 'butterfly')
     def __init__(self):
         # Load neural network model to predict evaluations
-        self.model = tf.keras.models.load_model('chess_nn_model.h5')
+        self.model = tf.keras.models.load_model('C:/Source Code/Code/chess_nn/src/nn/chess_nn_model.h5')
 
         # Controller to make and unmake moves while also updating the zobrist key
         self.controller = Controller()
@@ -30,7 +30,7 @@ class CobraEngine:
         self.controller.set_board(board)
         return self._IDS(board)
 
-    def _IDS(self, board, depth_limit=4, time_limit=10):
+    def _IDS(self, board, depth_limit=4, time_limit=5):
         """
         Iterative deepening search algorithm to find 
         best chess move for specified colour within depth limit and time limit
@@ -65,15 +65,12 @@ class CobraEngine:
                 return entry.score, entry.move
 
         if depth == 0 or board.is_game_over():
-            return self.evaluate_position(board) - depth, None
+            return self.nn_evaluation(board) - depth, None
 
         best_move = None
         best_score = float('-inf')
 
         def move_score(move):
-            if entry is not None and entry.move == move:
-                return 1000
-
             if (capture_square := helpers.captured_piece_square(board, move)) is not None:
                 capture = board.piece_at(capture_square)
                 piece_scores = [1, 3, 3, 5, 9, 10000]  # Pawn, Knight, Bishop, Rook, Queen, King
@@ -91,8 +88,6 @@ class CobraEngine:
         moves.sort(key=move_score, reverse=True)
 
         for move in moves:
-            capture = None
-
             self.controller.move(move)
             score = -self._negamax(board, -beta, -alpha, depth-1)[0]
             self.controller.unmove()
@@ -101,13 +96,15 @@ class CobraEngine:
                 best_score = score
                 best_move = move
 
+            is_capture = board.is_capture(move)
             alpha = max(alpha, best_score)
+            
             if alpha >= beta:
-                if capture is None:
+                if not is_capture:
                     self.history[board.turn][move.from_square][move.to_square] += depth * depth
                 break
             else:
-                if capture is None:
+                if not is_capture:
                     self.butterfly[board.turn][move.from_square][move.to_square] += 1
 
         # Store result in transposition table
@@ -123,44 +120,7 @@ class CobraEngine:
 
         return best_score, best_move
 
-    def _bitboard(self, board):
-        """Generate a boolean array representing a chess board"""
-        # 768 bits for pieces, 8 bits for en passant, 4 bits for castling rights, and 1 bit to represent whose turn it is
-        bitboard = np.zeros(781, dtype=bool)
-
-        # Bits representing the pieces
-        for piece in chess.PIECE_TYPES:
-            for square in board.pieces(piece, chess.WHITE):
-                bitboard[64 * (piece-1) + square] = True
-
-            for square in board.pieces(piece, chess.BLACK):
-                bitboard[64 * (piece+5) + square] = True
-        
-        # Bit representing whose turn it is
-        if board.turn == chess.BLACK:
-            bitboard[768] = True
-
-        # Bits to represent the castling rights
-        # Kingside castling for white
-        if board.castling_rights & chess.BB_H1:
-            bitboard[769] = True
-        # Queenside castling for white
-        if board.castling_rights & chess.BB_A1:
-            bitboard[770] = True
-        # Kingside castling for black
-        if board.castling_rights & chess.BB_H8:
-            bitboard[771] = True
-        # Queenside castling for black
-        if board.castling_rights & chess.BB_A8:
-            bitboard[772] = True
-
-        # 8 bits to represent the en passant row, if there is one
-        if board.has_legal_en_passant():
-            bitboard[773 + board.ep_square % 8] = True
-
-        return bitboard
-
-    def evaluate_position(self, board):
+    def nn_evaluation(self, board):
         """Return the evaluation of a chess position"""
         if (outcome := board.outcome()) is not None:
             if outcome.winner is None:
@@ -170,10 +130,33 @@ class CobraEngine:
             else: 
                 return -100000
 
-        return self.model(np.array([self._bitboard(board)]))[0][0]
+        return self.model(np.array([helpers.bitboard(board)]))[0][0]
+    
+    def static_evaluation(self, board):
+        if (outcome := board.outcome()) is not None:
+            if outcome.winner is None:
+                return 0
+            elif board.turn == outcome.winner:
+                return 100000
+            else: 
+                return -100000
+        
+        piece_scores = [1, 3, 3, 5, 9, 10000]
+        white_score = 0
+        black_score = 0
+        for piece in chess.PIECE_TYPES:
+            for _ in board.pieces(piece, chess.WHITE):
+                white_score += piece_scores[piece-1]
+            for _ in board.pieces(piece, chess.BLACK):
+                black_score += piece_scores[piece-1]
+        if board.turn == chess.WHITE:
+            return white_score - black_score
+        else:
+            return black_score - white_score
 
-board = chess.Board()
-bot = CobraEngine()
+
+# board = chess.Board()
+# bot = CobraEngine()
 
 # import cProfile, pstats
 # profiler = cProfile.Profile()
@@ -190,13 +173,13 @@ bot = CobraEngine()
 #         board.push(move)
 #         print(board, move)
 #     else:
-        # while True:
-        #     try:
-        #         move = chess.Move.from_uci(input("Move: "))
-        #         board.push(move)
-        #         break
-        #     except Exception as e:
-        #         print(e)
-        # move = bot.get_move(board)
-        # board.push(move)
-        # print(board, move)
+#         while True:
+#             try:
+#                 move = chess.Move.from_uci(input("Move: "))
+#                 board.push(move)
+#                 break
+#             except Exception as e:
+#                 print(e)
+#         # move = bot.get_move(board)
+#         # board.push(move)
+#         # print(board, move)
