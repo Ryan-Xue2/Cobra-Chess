@@ -1,3 +1,5 @@
+import chess
+
 from cobra.zobrist import Zobrist
 from cobra import helpers
 
@@ -80,3 +82,22 @@ class Controller:
         # Update the castling rights and en passant rights if necessary
         self.zobrist.update_castling_rights(self.board, castling_rights_before)
         self.zobrist.update_en_passant(self.board, ep_square_before, ep_available_before)
+
+    def make_null_move(self):
+        """Plays a null move, passing the turn to the other side and possibly forfeiting en passant"""
+        ep_square_before = self.board.ep_square
+        ep_available_before = self.board.has_legal_en_passant()
+
+        null_move = chess.Move.null()
+        self.board.push(null_move)
+
+        self.zobrist.update_null_move(self.board, ep_square_before, ep_available_before)
+
+    def unmake_null_move(self):
+        """Unplays a null move"""
+        ep_square_before = self.board.ep_square
+        ep_available_before = self.board.has_legal_en_passant()
+
+        self.board.pop()
+        
+        self.zobrist.update_null_move(self.board, ep_square_before, ep_available_before)
