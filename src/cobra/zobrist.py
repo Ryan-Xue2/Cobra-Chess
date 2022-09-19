@@ -133,3 +133,11 @@ class Zobrist:
         for i, rook in enumerate(self.rook_squares):
             if board.castling_rights & rook:
                 self.key ^= self.castling[i]
+    
+    def update_null_move(self, board, ep_square_before, ep_available_before):
+        """Update the zobrist key in the case of a null move"""
+        # Change turn
+        self.key ^= self.turn
+
+        # Update en passant
+        self.update_en_passant(board, ep_square_before, ep_available_before)
