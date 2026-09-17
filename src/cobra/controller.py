@@ -54,7 +54,6 @@ class Controller:
         self.zobrist.update_castling_rights(self.board, castling_rights_before)
         self.zobrist.update_en_passant(self.board, ep_square_before, ep_available_before)
 
-
     def unmove(self):
         """Undo the last move and update zobrist key accordingly"""
         move = self.board.peek()

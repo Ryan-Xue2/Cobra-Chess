@@ -1,20 +1,17 @@
 import chess
-import tensorflow as tf
 import time
-import numpy as np
-import chess.engine
 
 from cobra import helpers
 from cobra.controller import Controller
 from cobra.transposition import TranspositionTable, TranspositionTableEntry, EXACT, UPPER, LOWER
 
 
-class _SearchTimeout(Exception):
+class _SearchStopped(Exception):
     pass
 
 
 class CobraEngine:
-    __slots__ = ('model', 'controller', 'transposition', 'history', 'butterfly', 'killer', 'positions_evaluated', '_deadline')
+    __slots__ = ('model', 'controller', 'transposition', 'history', 'butterfly', 'killer', 'positions_evaluated', '_deadline', '_stop_event')
     def __init__(self):
         # Load neural network model to predict evaluations
         # TODO: commented out because the path doesn't exist anymore, should not be hardcoded anyway
@@ -34,10 +31,11 @@ class CobraEngine:
         # Killer heuristic
         self.killer = [[None] * 20 for _ in range(2)]
 
-    def get_move(self, board, time_limit=5):
+    def get_move(self, board, time_limit=5, stop_event=None):
         """Return the best move given a chess board"""
         self.controller.set_board(board)
         self.positions_evaluated = 0
+        self._stop_event = stop_event
         return self._IDS(board, time_limit=time_limit)
 
     def _IDS(self, board, depth_limit=10, time_limit=5):
@@ -45,31 +43,17 @@ class CobraEngine:
         Iterative deepening search algorithm to find 
         best chess move for specified colour within depth limit and time limit
         """
-        start_time = time.perf_counter()
-        self._deadline = start_time + time_limit
-        best_move = next(iter(board.legal_moves), None)  # in case we timeout before depth 1 completes
+        self._deadline = time.perf_counter() + time_limit
+        best_move = next(iter(board.legal_moves), None)
 
         for depth in range(1, depth_limit + 1):
             try:
-                evaluation, completed_move = self._negamax(board, float('-inf'), float('inf'), depth, True)
-            except _SearchTimeout:
+                _, completed_move = self._negamax(board, float('-inf'), float('inf'), depth, True)
+            except _SearchStopped:
                 break
 
             best_move = completed_move
-            print('Depth searched:', depth, end=', ')
-            print('Best move:', best_move, end=', ')
-            print('Evaluation', evaluation, end=', ')
-            print('Time taken:', time.perf_counter() - start_time, end=', ')
-            print('Positions evaluated:', self.positions_evaluated)
-        
-        print('\n')
-        
-        # print('Best move:', best_move)
-        # print('Evaluation:', evaluation)
-        # print('Depth searched:', depth)
-        # print('Time taken:', time.time() - start_time)
-        # print('Positions evaluated:', self.positions_evaluated)
-        
+
         return best_move
 
     def _quiescence(self, depth, board):
@@ -77,8 +61,8 @@ class CobraEngine:
             return
 
     def _negamax(self, board, alpha, beta, depth, do_null):
-        if time.perf_counter() >= self._deadline:
-            raise _SearchTimeout
+        if time.perf_counter() >= self._deadline or (self._stop_event is not None and self._stop_event.is_set()):
+            raise _SearchStopped
 
         alpha_orig = alpha
 
