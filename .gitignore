@@ -1,2 +1,16 @@
+# Generated project data
 *.db
 *.npz
+
+# Python bytecode & caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtual environments
+.venv/
+
+# Packaging output
+build/
+dist/
+*.egg-info/

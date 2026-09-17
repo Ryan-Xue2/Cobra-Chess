@@ -13,7 +13,9 @@ class CobraEngine:
     __slots__ = ('model', 'controller', 'transposition', 'history', 'butterfly', 'killer', 'positions_evaluated')
     def __init__(self):
         # Load neural network model to predict evaluations
-        self.model = tf.keras.models.load_model('C:/Source Code/Code/chess_nn/src/nn/chess_nn_model.h5')
+        # TODO: commented out because the path doesn't exist anymore, should not be hardcoded anyway
+        # self.model = tf.keras.models.load_model('C:/Source Code/Code/chess_nn/src/nn/chess_nn_model.h5')
+        self.model = None
 
         # Controller to make and unmake moves while also updating the zobrist key
         self.controller = Controller()
@@ -82,7 +84,8 @@ class CobraEngine:
                 return entry.score, entry.move
 
         if depth <= 0 or board.is_game_over():
-            return self.nn_evaluation(board) - depth, None
+            # return self.nn_evaluation(board) - depth, None
+            return self.static_evaluation(board) - depth, None
 
         # Null move pruning
         if do_null and not board.is_check():
@@ -162,7 +165,7 @@ class CobraEngine:
 
         return best_score, best_move
 
-    def nn_evaluation(self, board):
+    # def nn_evaluation(self, board):
         """Predict evaluation of a chess position with a neural network"""
         self.positions_evaluated += 1
         if (outcome := board.outcome()) is not None:
