@@ -147,7 +147,7 @@ class NoodlesnakeEngine:
                     self.butterfly[board.turn][move.from_square][move.to_square] += depth
 
         # Store result in transposition table
-        if score <= alpha_orig:
+        if best_score <= alpha_orig:
             flag = UPPER
         elif score >= beta:
             flag = LOWER
