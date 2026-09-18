@@ -5,7 +5,7 @@ import numpy as np
 
 from time import perf_counter
 from multiprocessing import Pool
-from cobra import helpers
+from noodlesnake import helpers
 
 
 def main():

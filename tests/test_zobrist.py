@@ -1,8 +1,8 @@
 import pytest
 import chess
 
-from cobra.controller import Controller
-from cobra.zobrist import Zobrist
+from noodlesnake.controller import Controller
+from noodlesnake.zobrist import Zobrist
 from random import choice
 
 

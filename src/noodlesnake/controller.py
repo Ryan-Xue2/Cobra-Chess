@@ -1,7 +1,7 @@
 import chess
 
-from cobra.zobrist import Zobrist
-from cobra import helpers
+from noodlesnake.zobrist import Zobrist
+from noodlesnake import helpers
 
 
 class Controller:

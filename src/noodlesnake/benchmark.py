@@ -1,8 +1,8 @@
-from cobra.engine import CobraEngine
+from noodlesnake.engine import NoodlesnakeEngine
 import chess
 
 
-engine = CobraEngine()
+engine = NoodlesnakeEngine()
 board = chess.Board()
 
 for _ in range(10):

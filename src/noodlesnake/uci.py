@@ -3,16 +3,16 @@ import threading
 
 import chess
 
-from cobra.engine import CobraEngine
+from noodlesnake.engine import NoodlesnakeEngine
 
 
 class UCIAdapter:
-    """Expose Cobra through the UCI subset used by lichess-bot."""
+    """Expose Noodlesnake through the UCI commands needed to play games."""
 
     def __init__(self):
         """Initialize the engine and starting position."""
         self.board = chess.Board()
-        self.engine = CobraEngine()
+        self.engine = NoodlesnakeEngine()
         self.search_thread = None
         self.stop_event = None
 
@@ -22,7 +22,7 @@ class UCIAdapter:
         print(message, flush=True)
 
     def run(self):
-        """Read UCI commands until lichess-bot sends quit."""
+        """Read UCI commands until the client sends quit."""
         for line in sys.stdin:
             if not self.handle(line.strip()):
                 break
@@ -32,14 +32,14 @@ class UCIAdapter:
         command, *arguments = line.split()
 
         if command == 'uci':
-            self.send('id name Cobra Chess Engine')
+            self.send('id name Noodlesnake')
             self.send('id author Ryan Xue')
             self.send('uciok')
         elif command == 'isready':
             self.send('readyok')
         elif command == 'ucinewgame':
             self._stop_search(wait=True)
-            self.engine = CobraEngine()
+            self.engine = NoodlesnakeEngine()
         elif command == 'position':
             self._stop_search(wait=True)
             self._set_position(arguments)
@@ -85,7 +85,7 @@ class UCIAdapter:
             )
             self.send(f'bestmove {move.uci()}')
 
-        self.search_thread = threading.Thread(target=search, name='cobra-search')
+        self.search_thread = threading.Thread(target=search, name='noodlesnake-search')
         self.search_thread.start()
 
     def _stop_search(self, wait=False):

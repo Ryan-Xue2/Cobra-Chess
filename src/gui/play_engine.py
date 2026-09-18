@@ -1,12 +1,12 @@
 from gui import Gui 
 import chess
-from cobra.engine import CobraEngine
+from noodlesnake.engine import NoodlesnakeEngine
 from time import sleep
 
 board = chess.Board()
 print(board)
 gui = Gui(board)
-engine = CobraEngine()
+engine = NoodlesnakeEngine()
 
 while True:
     gui.check_events()

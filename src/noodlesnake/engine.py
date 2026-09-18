@@ -1,23 +1,18 @@
 import chess
 import time
 
-from cobra import helpers
-from cobra.controller import Controller
-from cobra.transposition import TranspositionTable, TranspositionTableEntry, EXACT, UPPER, LOWER
+from noodlesnake import helpers
+from noodlesnake.controller import Controller
+from noodlesnake.transposition import TranspositionTable, TranspositionTableEntry, EXACT, UPPER, LOWER
 
 
 class _SearchStopped(Exception):
     pass
 
 
-class CobraEngine:
-    __slots__ = ('model', 'controller', 'transposition', 'history', 'butterfly', 'killer', 'positions_evaluated', '_deadline', '_stop_event')
+class NoodlesnakeEngine:
+    __slots__ = ('controller', 'transposition', 'history', 'butterfly', 'killer', '_deadline', '_stop_event')
     def __init__(self):
-        # Load neural network model to predict evaluations
-        # TODO: commented out because the path doesn't exist anymore, should not be hardcoded anyway
-        # self.model = tf.keras.models.load_model('C:/Source Code/Code/chess_nn/src/nn/chess_nn_model.h5')
-        self.model = None
-
         # Controller to make and unmake moves while also updating the zobrist key
         self.controller = Controller()
 
@@ -34,7 +29,6 @@ class CobraEngine:
     def get_move(self, board, time_limit=5, stop_event=None):
         """Return the best move given a chess board"""
         self.controller.set_board(board)
-        self.positions_evaluated = 0
         self._stop_event = stop_event
         return self._IDS(board, time_limit=time_limit)
 
@@ -165,22 +159,8 @@ class CobraEngine:
 
         return best_score, best_move
 
-    # def nn_evaluation(self, board):
-        """Predict evaluation of a chess position with a neural network"""
-        self.positions_evaluated += 1
-        if (outcome := board.outcome()) is not None:
-            if outcome.winner is None:
-                return 0
-            elif board.turn == outcome.winner:
-                return 100000
-            else: 
-                return -100000
-
-        return self.model(np.array([helpers.bitboard(board)]))[0][0]
-    
     def static_evaluation(self, board):
         """Return the evaluation in terms of material"""
-        self.positions_evaluated += 1
         if (outcome := board.outcome()) is not None:
             if outcome.winner is None:
                 return 0
