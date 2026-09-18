@@ -1,7 +1,7 @@
 import chess
 
-from cobra.zobrist import Zobrist
-from cobra import helpers
+from noodlesnake.zobrist import Zobrist
+from noodlesnake import helpers
 
 
 class Controller:
@@ -53,7 +53,6 @@ class Controller:
         # Update the castling rights and en passant rights if necessary
         self.zobrist.update_castling_rights(self.board, castling_rights_before)
         self.zobrist.update_en_passant(self.board, ep_square_before, ep_available_before)
-
 
     def unmove(self):
         """Undo the last move and update zobrist key accordingly"""

@@ -4,7 +4,7 @@ import numpy as np
 import chess
 import chess.engine
 
-from cobra import helpers
+from noodlesnake import helpers
 
 
 # %% Load data into np arrays

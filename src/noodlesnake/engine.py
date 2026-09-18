@@ -1,22 +1,18 @@
 import chess
-import tensorflow as tf
 import time
-import numpy as np
-import chess.engine
 
-from cobra import helpers
-from cobra.controller import Controller
-from cobra.transposition import TranspositionTable, TranspositionTableEntry, EXACT, UPPER, LOWER
+from noodlesnake import helpers
+from noodlesnake.controller import Controller
+from noodlesnake.transposition import TranspositionTable, TranspositionTableEntry, EXACT, UPPER, LOWER
 
 
-class CobraEngine:
-    __slots__ = ('model', 'controller', 'transposition', 'history', 'butterfly', 'killer', 'positions_evaluated')
+class _SearchStopped(Exception):
+    pass
+
+
+class NoodlesnakeEngine:
+    __slots__ = ('controller', 'transposition', 'history', 'butterfly', 'killer', '_deadline', '_stop_event')
     def __init__(self):
-        # Load neural network model to predict evaluations
-        # TODO: commented out because the path doesn't exist anymore, should not be hardcoded anyway
-        # self.model = tf.keras.models.load_model('C:/Source Code/Code/chess_nn/src/nn/chess_nn_model.h5')
-        self.model = None
-
         # Controller to make and unmake moves while also updating the zobrist key
         self.controller = Controller()
 
@@ -30,37 +26,28 @@ class CobraEngine:
         # Killer heuristic
         self.killer = [[None] * 20 for _ in range(2)]
 
-    def get_move(self, board):
+    def get_move(self, board, time_limit=5, stop_event=None):
         """Return the best move given a chess board"""
         self.controller.set_board(board)
-        self.positions_evaluated = 0
-        return self._IDS(board)
+        self._stop_event = stop_event
+        return self._IDS(board, time_limit=time_limit)
 
     def _IDS(self, board, depth_limit=10, time_limit=5):
         """
         Iterative deepening search algorithm to find 
         best chess move for specified colour within depth limit and time limit
         """
-        start_time = time.time()
+        self._deadline = time.perf_counter() + time_limit
+        best_move = next(iter(board.legal_moves), None)
 
         for depth in range(1, depth_limit + 1):
-            evaluation, best_move = self._negamax(board, float('-inf'), float('inf'), depth, True)
-            print('Depth searched:', depth, end=', ')
-            print('Best move:', best_move, end=', ')
-            print('Evaluation', evaluation, end=', ')
-            print('Time taken:', time.time() - start_time, end=', ')
-            print('Positions evaluated:', self.positions_evaluated)
-            if time.time() - start_time > time_limit:
+            try:
+                _, completed_move = self._negamax(board, float('-inf'), float('inf'), depth, True)
+            except _SearchStopped:
                 break
-        
-        print('\n')
-        
-        # print('Best move:', best_move)
-        # print('Evaluation:', evaluation)
-        # print('Depth searched:', depth)
-        # print('Time taken:', time.time() - start_time)
-        # print('Positions evaluated:', self.positions_evaluated)
-        
+
+            best_move = completed_move
+
         return best_move
 
     def _quiescence(self, depth, board):
@@ -68,6 +55,9 @@ class CobraEngine:
             return
 
     def _negamax(self, board, alpha, beta, depth, do_null):
+        if time.perf_counter() >= self._deadline or (self._stop_event is not None and self._stop_event.is_set()):
+            raise _SearchStopped
+
         alpha_orig = alpha
 
         # See if same position has been reached before in transposition table
@@ -90,9 +80,11 @@ class CobraEngine:
         # Null move pruning
         if do_null and not board.is_check():
             self.controller.make_null_move()
-            R = 2
-            score = -self._negamax(board, -beta, -beta+1, depth-R, False)[0]
-            self.controller.unmake_null_move()
+            try:
+                R = 2
+                score = -self._negamax(board, -beta, -beta+1, depth-R, False)[0]
+            finally:
+                self.controller.unmake_null_move()
             
             if score >= beta:
                 return score, None
@@ -131,8 +123,10 @@ class CobraEngine:
 
         for move in moves:
             self.controller.move(move)
-            score = -self._negamax(board, -beta, -alpha, depth-1, True)[0]
-            self.controller.unmove()
+            try:
+                score = -self._negamax(board, -beta, -alpha, depth-1, True)[0]
+            finally:
+                self.controller.unmove()
 
             if score > best_score:
                 best_score = score
@@ -165,22 +159,8 @@ class CobraEngine:
 
         return best_score, best_move
 
-    # def nn_evaluation(self, board):
-        """Predict evaluation of a chess position with a neural network"""
-        self.positions_evaluated += 1
-        if (outcome := board.outcome()) is not None:
-            if outcome.winner is None:
-                return 0
-            elif board.turn == outcome.winner:
-                return 100000
-            else: 
-                return -100000
-
-        return self.model(np.array([helpers.bitboard(board)]))[0][0]
-    
     def static_evaluation(self, board):
         """Return the evaluation in terms of material"""
-        self.positions_evaluated += 1
         if (outcome := board.outcome()) is not None:
             if outcome.winner is None:
                 return 0
